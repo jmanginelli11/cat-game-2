@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cat Game</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+      body {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="text/javascript">
+      var config = {
+        type: Phaser.AUTO,
+        width: 480,
+        height: 640,
+        backgroundColor: "#3498db",
+        physics: {
+          default: "arcade",
+          arcade: {
+            gravity: { y: 200 },
+            debug: false,
+          },
+        },
+        scene: {
+          preload: preload,
+          create: create,
+          update: update,
+        },
+      };
+
+      var player;
+      var birds;
+      var platforms;
+      var squirrels;
+      var hawks;
+      var cursors;
+      var score = 0;
+      var gameOver = false;
+      var scoreText;
+
+      var game = new Phaser.Game(config);
+
+      function preload() {
+        this.load.image("platform", "assets /platform.png");
+        // this.load.image("tile", "assets /tile.png");
+        this.load.spritesheet("cat", "assets /cat_orange-32x48.png", {
+          frameWidth: 32,
+          frameHeight: 46.77,
+        });
+        this.load.spritesheet("birds", "assets /flyingbird.png", {
+          frameWidth: 32,
+          frameHeight: 38,
+        });
+      }
+
+      function create() {
+        platforms = this.physics.add.staticGroup();
+        // chain this ---> .setScrollFactor(1, 0) to the end of my background so that the background keeps regenerating;
+
+        for (let i = 0; i < 5; i++) {
+          const x = Phaser.Math.Between(80, 400);
+          const y = 150 * i;
+
+          platform = platforms.create(x, y, "platform");
+          platform.scale = 0.5;
+
+          const body = platform.body;
+          body.updateFromGameObject();
+        }
+
+        player = this.physics.add.sprite(100, 450, "cat").setScale(2);
+        player.setBounce(0.2);
+        // player.setCollideWorldBounds(true);
+        // ^ took out the collide world bounds for player to enable player to fall off the screen and die
+
+        this.anims.create({
+          key: "left",
+          frames: this.anims.generateFrameNumbers("cat", {
+            start: 9,
+            end: 11,
+          }),
+        });
+
+        this.anims.create({
+          key: "turn",
+          frames: [{ key: "cat", frame: 8 }],
+        });
+
+        this.anims.create({
+          key: "right",
+          frames: this.anims.generateFrameNumbers("cat", { start: 3, end: 5 }),
+        });
+
+        cursors = this.input.keyboard.createCursorKeys();
+
+        birds = this.physics.add.group({
+          key: "birds",
+          repeat: 5,
+          setXY: { x: 12, y: 0, stepX: 70 },
+        });
+
+        // birds.setCollideWorldBounds(true);
+
+        birds.children.iterate(function (child) {
+          child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+        });
+
+        scoreText = this.add.text(16, 16, "score: 0", {
+          fontSize: "32px",
+          fill: "#000",
+        });
+
+        this.physics.add.collider(player, platforms);
+        player.body.checkCollision.up = false;
+
+        this.physics.add.collider(birds, platforms);
+
+        this.physics.add.overlap(player, birds, collectBird, null, this);
+
+        this.cameras.main.startFollow(player);
+        // this.cameras.main.setDeadzone(this.width * 1.5);
+
+        console.log("HERE IS PLAYER", player);
+        console.log("here is this.width", this.width);
+      }
+
+      function update() {
+        if (cursors.left.isDown) {
+          player.setVelocityX(-200);
+          player.anims.play("left", true);
+        } else if (cursors.right.isDown) {
+          player.setVelocityX(200);
+          player.anims.play("right", true);
+        } else {
+          player.setVelocityX(0);
+          player.anims.play("turn");
+        }
+
+        if (cursors.up.isDown && player.body.touching.down) {
+          player.setVelocityY(-300);
+        }
+
+        platforms.children.iterate((child) => {
+          const platform = child;
+          const scrollY = this.cameras.main.scrollY;
+          if (platform.y >= scrollY + 700) {
+            platform.y = scrollY - Phaser.Math.Between(50, 100);
+            platform.body.updateFromGameObject();
+          }
+        });
+
+        horizontalWrap(player);
+      }
+
+      function horizontalWrap(sprite) {
+        const halfWidth = sprite.displayWidth * 0.5;
+        const gameWidth = this.width;
+        if (sprite.x < -halfWidth) {
+          sprite.x = gameWidth + halfWidth;
+        } else if (sprite.x > gameWidth + halfWidth) {
+          sprite.x = -halfWidth;
+        }
+      }
+
+      function collectBird(player, birds) {
+        birds.disableBody(true, true);
+        score += 10;
+        scoreText.setText("Score: " + score);
+
+        // if (birds.countActive(true) === 0) {
+        //   birds.children.iterate(function (child) {
+        //     child.enableBody(true, child.x, 0, true, true);
+        //   });
+        // }
+      }
+
+      function render() {
+        game.debug.cameraInfo(game.camera, 32, 32);
+      }
+    </script>
+  </body>
+</html>
